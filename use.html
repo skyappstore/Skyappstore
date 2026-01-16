@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sky App Store</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #2563eb;
+            --secondary: #3b82f6;
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --text-main: #1e293b;
+            --text-sub: #64748b;
+            --border: #e2e8f0;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            --toast-bg: #1e293b;
+            --toast-text: #fff;
+        }
+
+        [data-theme="dark"] {
+            --bg: #0f172a;
+            --surface: #1e293b;
+            --text-main: #f1f5f9;
+            --text-sub: #94a3b8;
+            --border: #334155;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+            --toast-bg: #f8fafc;
+            --toast-text: #0f172a;
+        }
+
+        body { 
+            font-family: 'Segoe UI', sans-serif; 
+            margin: 0; 
+            background: var(--bg); 
+            color: var(--text-main); 
+            /* Added extra padding for Ad + Nav */
+            padding-bottom: 130px; 
+            user-select: none; 
+            -webkit-user-select: none;
+            touch-action: manipulation;
+            transition: background 0.3s, color 0.3s;
+        }
+
+        /* --- Loading & Toast --- */
+        #splash-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100vh;
+            background: var(--bg); z-index: 9999;
+            display: flex; justify-content: center; align-items: center; flex-direction: column;
+            transition: opacity 0.5s ease;
+        }
+        .spinner {
+            width: 40px; height: 40px; border: 4px solid var(--border);
+            border-top: 4px solid var(--primary); border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        #toast-container {
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+            z-index: 3000; width: 90%; max-width: 350px; text-align: center;
+        }
+        .toast-msg {
+            background: var(--toast-bg); color: var(--toast-text);
+            padding: 12px 20px; border-radius: 30px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+            font-size: 14px; font-weight: 600;
+            opacity: 0; transform: translateY(-20px);
+            transition: all 0.3s ease; display: flex; align-items: center; justify-content: center; gap: 10px;
+        }
+        .toast-msg.show { opacity: 1; transform: translateY(0); }
+
+        /* --- Auth Styling --- */
+        #auth-container { 
+            display: none; justify-content: center; align-items: center; height: 100vh; 
+            background: linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%);
+            position: fixed; top: 0; left: 0; width: 100%; z-index: 2000;
+        }
+        .auth-box { 
+            background: rgba(255, 255, 255, 0.9); 
+            padding: 40px 30px; 
+            border-radius: 24px; 
+            width: 85%; max-width: 340px;
+            text-align: center; 
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2); 
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.5);
+            animation: slideUp 0.5s ease;
+        }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        
+        .auth-logo { font-size: 40px; color: #4f46e5; margin-bottom: 10px; }
+        .auth-box h2 { margin-bottom: 25px; color: #333; font-weight: 800; }
+        .input-group { position: relative; margin-bottom: 18px; }
+        .input-group i { position: absolute; left: 18px; top: 50%; transform: translateY(-50%); color: #64748b; }
+        .auth-input { 
+            width: 100%; padding: 14px 15px 14px 45px; 
+            border: 2px solid #e2e8f0; border-radius: 16px; 
+            box-sizing: border-box; outline: none; transition: 0.3s;
+            font-size: 14px; background: #f8fafc;
+        }
+        .auth-input:focus { border-color: #4f46e5; background: white; }
+        .auth-btn { 
+            width: 100%; padding: 14px; background: linear-gradient(90deg, #4f46e5, #06b6d4); 
+            color: white; border: none; border-radius: 16px; 
+            font-weight: bold; cursor: pointer; margin-top: 10px; font-size: 16px;
+            box-shadow: 0 5px 15px rgba(79, 70, 229, 0.3);
+            transition: transform 0.2s;
+        }
+        .auth-btn:active { transform: scale(0.97); }
+
+        /* --- Global Layout --- */
+        .view-page { display: none; animation: fadeIn 0.3s; min-height: 100vh; }
+        .view-page.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .header { 
+            background: var(--surface); padding: 15px 20px; 
+            box-shadow: var(--shadow); 
+            position: sticky; top: 0; z-index: 100; 
+            display: flex; align-items: center; justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+        }
+        .header-title { font-size: 20px; font-weight: 700; color: var(--text-main); }
+        .header-icon { color: var(--text-main); font-size: 20px; cursor: pointer; padding: 5px; }
+        .back-btn { cursor: pointer; font-size: 20px; padding-right: 15px; color: var(--text-main); }
+
+        /* --- Slider --- */
+        .banner-container {
+            width: 100%; height: 180px; overflow: hidden; position: relative;
+            margin-bottom: 10px; background: var(--bg);
+        }
+        .slider-wrapper { display: flex; transition: transform 0.5s ease-in-out; height: 100%; }
+        .slide { min-width: 100%; height: 100%; padding: 10px 15px; box-sizing: border-box; cursor: pointer; }
+        .slide img { width: 100%; height: 100%; object-fit: cover; border-radius: 16px; box-shadow: var(--shadow); }
+        .slider-dots {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 8px;
+        }
+        .dot { width: 8px; height: 8px; background: rgba(255,255,255,0.5); border-radius: 50%; transition: 0.3s; }
+        .dot.active-dot { background: #fff; width: 20px; border-radius: 10px; }
+
+        /* --- MIXED LAYOUT STYLES --- */
+        #app-list, #sky-apps-list {
+            display: flex;
+            flex-wrap: wrap;
+            padding: 10px;
+            gap: 10px;
+            justify-content: flex-start;
+        }
+
+        /* LIST STYLE */
+        .app-item-list { 
+            width: 100%;
+            display: flex; align-items: center; background: var(--surface); 
+            padding: 15px; border-radius: 16px; 
+            box-shadow: var(--shadow); transition: transform 0.2s; cursor: pointer; 
+            border: 1px solid var(--border);
+            box-sizing: border-box;
+            margin-bottom: 5px;
+        }
+        .app-item-list:active { transform: scale(0.98); }
+        .app-item-list .app-icon { width: 55px; height: 55px; border-radius: 14px; object-fit: cover; background: #eee; }
+        .app-item-list .app-info { flex: 1; margin-left: 15px; }
+        .app-item-list .app-name { font-weight: 700; font-size: 16px; margin: 0; color: var(--text-main); }
+        .app-item-list .app-desc { font-size: 13px; color: var(--text-sub); margin-top: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .app-item-list .arrow { color: var(--border); font-size: 14px; }
+
+        /* GRID STYLE */
+        .app-item-grid {
+            width: calc(33.33% - 7px); 
+            background: transparent; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center;
+            cursor: pointer;
+            transition: transform 0.2s;
+            box-sizing: border-box;
+            margin-bottom: 8px;
+        }
+        .app-item-grid:active { transform: scale(0.95); }
+        .app-item-grid .app-icon { 
+            width: 75%; 
+            aspect-ratio: 1 / 1; 
+            border-radius: 18px;
+            object-fit: cover; 
+            background: #eee; 
+            box-shadow: var(--shadow);
+            margin-bottom: 8px;
+        }
+        .app-item-grid .app-name { 
+            font-weight: 600; 
+            font-size: 12px; 
+            color: var(--text-main); 
+            text-align: center;
+            display: -webkit-box; 
+            -webkit-line-clamp: 1; 
+            -webkit-box-orient: vertical; 
+            overflow: hidden;
+            width: 100%;
+        }
+        .app-item-grid .app-desc, .app-item-grid .arrow { display: none; }
+
+        /* --- Search View --- */
+        .search-bar-container {
+            background: var(--surface); padding: 10px 15px;
+            position: sticky; top: 0; z-index: 101;
+            box-shadow: var(--shadow); border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; gap: 10px;
+        }
+        .search-input-box {
+            flex: 1; background: var(--bg);
+            border-radius: 12px; display: flex; align-items: center;
+            padding: 0 15px; border: 1px solid var(--border);
+        }
+        .search-input {
+            width: 100%; padding: 12px 5px; border: none;
+            background: transparent; outline: none;
+            font-size: 15px; color: var(--text-main);
+        }
+        .search-placeholder { text-align: center; margin-top: 50px; color: var(--text-sub); }
+
+        /* --- Details View --- */
+        .details-header { background: var(--surface); padding: 20px; border-radius: 0 0 24px 24px; box-shadow: var(--shadow); }
+        .app-top-section { display: flex; align-items: flex-start; }
+        .app-icon-lg { width: 85px; height: 85px; border-radius: 20px; border: 1px solid var(--border); object-fit: cover; background: #eee; }
+        .app-title-section { margin-left: 15px; flex: 1; }
+        .app-title-lg { font-size: 22px; font-weight: 800; margin: 0; line-height: 1.2; color: var(--text-main); }
+        .dev-link { color: var(--primary); font-size: 14px; font-weight: 600; cursor: pointer; display: inline-block; margin-top: 5px; }
+        
+        .app-stats-row { display: flex; justify-content: space-between; gap: 10px; margin-top: 20px; }
+        .stat-box { flex: 1; background: var(--bg); padding: 10px; border-radius: 12px; text-align: center; border: 1px solid var(--border); }
+        .stat-value { display: block; font-weight: 800; font-size: 16px; color: var(--text-main); }
+        .stat-label { font-size: 11px; color: var(--text-sub); text-transform: uppercase; font-weight: bold; margin-top: 2px; }
+
+        .download-full-btn { 
+            background: var(--primary); color: white; border: none; 
+            padding: 14px 0; width: 100%; border-radius: 16px; 
+            font-weight: bold; font-size: 16px; margin-top: 15px; 
+            cursor: pointer; display: block; text-align: center; text-decoration: none;
+            box-shadow: 0 10px 20px -5px rgba(37, 99, 235, 0.4);
+            user-select: none;
+        }
+        .download-full-btn:active { transform: scale(0.98); }
+
+        .section-title { font-size: 18px; font-weight: bold; margin: 25px 20px 10px; color: var(--text-main); }
+        .screenshot-scroll { 
+            display: flex; overflow-x: auto; gap: 12px; padding: 0 20px; 
+            scrollbar-width: none;
+        }
+        .screenshot-img { width: 140px; height: 250px; border-radius: 12px; background: #eee; object-fit: cover; flex-shrink: 0; border: 1px solid var(--border); cursor: pointer; }
+        .desc-box { padding: 0 20px 20px; color: var(--text-sub); line-height: 1.6; font-size: 15px; text-align: justify; }
+
+        /* More Apps Grid Section */
+        #more-apps-container {
+            padding: 0 10px 20px 10px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
+        /* --- Lightbox / Fullscreen Screenshot --- */
+        #lightbox {
+            display: none;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95); z-index: 10000;
+            flex-direction: column; justify-content: center; align-items: center;
+        }
+        #lightbox img {
+            max-width: 100%; max-height: 80vh; object-fit: contain;
+            transition: transform 0.3s;
+        }
+        .lightbox-close {
+            position: absolute; top: 20px; right: 20px; color: white; font-size: 30px; cursor: pointer; padding: 10px;
+        }
+        .lightbox-nav {
+            position: absolute; top: 50%; transform: translateY(-50%);
+            color: white; font-size: 30px; padding: 20px; cursor: pointer;
+            background: rgba(255,255,255,0.1); border-radius: 50%;
+            user-select: none;
+        }
+        .nav-left { left: 10px; }
+        .nav-right { right: 10px; }
+
+        /* --- Settings & Profile --- */
+        .settings-list { padding: 10px; }
+        .setting-item {
+            background: var(--surface); padding: 15px; margin-bottom: 10px; border-radius: 12px;
+            display: flex; justify-content: space-between; align-items: center;
+            box-shadow: var(--shadow); color: var(--text-main); cursor: pointer;
+        }
+        .setting-left { display: flex; align-items: center; gap: 15px; font-weight: 600; }
+        .setting-icon { width: 30px; text-align: center; color: var(--primary); }
+        
+        .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--primary); }
+        input:checked + .slider:before { transform: translateX(20px); }
+
+        .profile-card { background: var(--surface); margin: 20px; padding: 35px 20px; border-radius: 24px; text-align: center; box-shadow: var(--shadow); position: relative; }
+        .profile-img-container { position: relative; width: 100px; height: 100px; margin: 0 auto 15px; }
+        .my-avatar { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; border: 3px solid var(--surface); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .edit-badge {
+            position: absolute; bottom: 0; right: 0; background: var(--primary); color: white;
+            width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-size: 14px; cursor: pointer; border: 2px solid var(--surface); box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        /* --- Modal --- */
+        #edit-modal { 
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.6); z-index: 2500; align-items: center; justify-content: center; backdrop-filter: blur(5px);
+        }
+        .modal-content { 
+            background: var(--surface); width: 85%; max-width: 400px; 
+            padding: 25px; border-radius: 20px; animation: zoomIn 0.3s; color: var(--text-main);
+        }
+        @keyframes zoomIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .modal-input { 
+            width: 100%; padding: 12px; margin: 8px 0; border: 1px solid var(--border); 
+            border-radius: 10px; box-sizing: border-box; background: var(--bg); color: var(--text-main);
+        }
+
+        .file-upload-wrapper {
+            position: relative;
+            margin: 15px 0;
+            text-align: center;
+        }
+        .file-upload-label {
+            display: inline-block;
+            padding: 10px 20px;
+            background: var(--bg);
+            border: 2px dashed var(--border);
+            border-radius: 10px;
+            cursor: pointer;
+            color: var(--text-sub);
+            font-size: 13px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .file-upload-label i { margin-right: 5px; font-size: 16px; color: var(--primary); }
+        #edit-pic-file { display: none; }
+
+        /* --- Ad Container --- */
+        .ad-container {
+            position: fixed;
+            bottom: 58px; /* Height of bottom nav approx */
+            left: 0;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 80;
+            background: var(--bg); /* To prevent content bleed */
+            padding-top: 5px;
+        }
+
+        /* --- Bottom Nav --- */
+        .bottom-nav { 
+            position: fixed; bottom: 0; width: 100%; background: var(--surface); 
+            display: flex; justify-content: space-around; padding: 12px 0; 
+            box-shadow: 0 -5px 20px rgba(0,0,0,0.05); z-index: 90; 
+            border-top: 1px solid var(--border);
+        }
+        .nav-item { text-align: center; color: var(--text-sub); cursor: pointer; transition: 0.3s; }
+        .nav-item.active { color: var(--primary); transform: translateY(-2px); }
+        .nav-item i { font-size: 22px; margin-bottom: 4px; display: block; }
+        .nav-item span { font-size: 11px; font-weight: 600; }
+
+        /* Dev Profile */
+        .dev-view-container { background: var(--bg); min-height: 100vh; }
+        .dev-banner { width: 100%; height: 150px; object-fit: cover; background: #ddd; }
+        .dev-profile-body { padding: 0 20px; position: relative; }
+        .dev-avatar-lg { width: 90px; height: 90px; border-radius: 50%; border: 4px solid var(--surface); object-fit: cover; background: var(--surface); margin-top: -45px; }
+        .dev-name-lg { font-size: 24px; font-weight: 800; margin: 10px 0 0; color: var(--text-main); }
+        .dev-bio { color: var(--text-sub); font-size: 14px; margin-top: 5px; line-height: 1.5; }
+        .dev-apps-header { padding: 10px 20px; font-size: 13px; font-weight: bold; color: var(--text-sub); margin-top: 20px; text-transform: uppercase; letter-spacing: 1px;}
+    </style>
+</head>
+<body>
+
+    <!-- Splash Screen -->
+    <div id="splash-screen">
+        <div class="spinner"></div>
+        <p style="margin-top: 15px; color: var(--text-sub); font-weight: 600;">Loading Store...</p>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <!-- Lightbox (Fullscreen Screenshots) -->
+    <div id="lightbox">
+        <i class="fas fa-times lightbox-close" onclick="closeLightbox()"></i>
+        <div class="lightbox-nav nav-left" onclick="prevSlide(event)"><i class="fas fa-chevron-left"></i></div>
+        <img id="lightbox-img" src="">
+        <div class="lightbox-nav nav-right" onclick="nextSlide(event)"><i class="fas fa-chevron-right"></i></div>
+    </div>
+
+    <!-- Auth View -->
+    <div id="auth-container">
+        <div class="auth-box">
+            <div class="auth-logo"><i class="fas fa-cube"></i></div>
+            <h2 id="auth-title">Welcome Back</h2>
+            <div class="input-group">
+                <i class="fas fa-envelope"></i>
+                <input type="email" id="email" class="auth-input" placeholder="Email Address">
+            </div>
+            <div class="input-group">
+                <i class="fas fa-lock"></i>
+                <input type="password" id="password" class="auth-input" placeholder="Password">
+            </div>
+            <button onclick="handleAuth()" id="auth-btn" class="auth-btn">Login</button>
+            <p onclick="toggleAuth()" style="cursor: pointer; color: #555; font-size: 14px; margin-top: 20px;" id="auth-toggle">No account? <b>Sign Up</b></p>
+        </div>
+    </div>
+
+    <!-- Main Views -->
+    <div id="main-app" style="display: none;">
+
+        <!-- 1. Home View -->
+        <div id="view-home" class="view-page active">
+            <div class="header">
+                <div class="header-title">Sky App Store</div>
+                <i class="fas fa-search header-icon" onclick="navigateTo('search')"></i>
+            </div>
+            
+            <div class="banner-container" id="banner-section" style="display: none;">
+                <div class="slider-wrapper" id="slider-wrapper"></div>
+                <div class="slider-dots" id="slider-dots"></div>
+            </div>
+
+            <div id="app-list">
+                <!-- Apps will be injected here with mixed layout -->
+            </div>
+        </div>
+
+        <!-- 2. Search View -->
+        <div id="view-search" class="view-page">
+            <div class="search-bar-container">
+                <i class="fas fa-arrow-left header-icon" onclick="goBack()"></i>
+                <div class="search-input-box">
+                    <input type="text" id="search-input" class="search-input" placeholder="Search apps..." onkeyup="performSearch()">
+                    <i class="fas fa-search" style="color: var(--text-sub);"></i>
+                </div>
+            </div>
+            <div id="search-results" style="padding:10px;">
+                <div class="search-placeholder">
+                    <i class="fas fa-rocket"></i>
+                    <p>Type above to find apps</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. Settings View -->
+        <div id="view-settings" class="view-page">
+            <div class="header">
+                <div style="display:flex; align-items:center;">
+                    <i class="fas fa-arrow-left back-btn" onclick="goBack()"></i>
+                    <span class="header-title">Settings</span>
+                </div>
+            </div>
+            <div class="settings-list">
+                <!-- Theme Switch -->
+                <div class="setting-item">
+                    <div class="setting-left">
+                        <i class="fas fa-moon setting-icon"></i>
+                        <span>Dark Mode</span>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="theme-switch" onchange="toggleTheme()">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <!-- Sky Apps Option (New) -->
+                <div class="setting-item" onclick="navigateTo('sky-apps')">
+                    <div class="setting-left">
+                        <i class="fas fa-cloud setting-icon"></i>
+                        <span>Sky Apps</span>
+                    </div>
+                    <i class="fas fa-chevron-right" style="color:var(--text-sub); font-size:14px;"></i>
+                </div>
+
+                <!-- Logout -->
+                <div class="setting-item" onclick="logout()" style="margin-top: 20px; border: 1px solid #fee2e2;">
+                    <div class="setting-left" style="color: #ef4444;">
+                        <i class="fas fa-sign-out-alt setting-icon" style="color: #ef4444;"></i>
+                        <span>Logout</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- NEW: Sky Apps View -->
+        <div id="view-sky-apps" class="view-page">
+            <div class="header">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-arrow-left back-btn" onclick="goBack()"></i>
+                    <span class="header-title">Sky Apps</span>
+                </div>
+            </div>
+            <div id="sky-apps-list" style="padding:10px;">
+                <p style="text-align:center; color:var(--text-sub); margin-top:20px;">Loading Sky Apps...</p>
+            </div>
+        </div>
+
+        <!-- 4. App Details View -->
+        <div id="view-details" class="view-page">
+            <div class="header">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-arrow-left back-btn" onclick="goBack()"></i>
+                    <span class="header-title">Details</span>
+                </div>
+            </div>
+            
+            <div class="details-header">
+                <div class="app-top-section">
+                    <img id="detail-icon" src="" class="app-icon-lg">
+                    <div class="app-title-section">
+                        <h1 id="detail-name" class="app-title-lg">App Name</h1>
+                        <div id="detail-dev" class="dev-link" onclick="openDevProfileFromApp()">Developer Name</div>
+                        <span style="display:block; font-size:12px; color:var(--text-sub); margin-top:5px;">Version 1.0 • Free</span>
+                    </div>
+                </div>
+                
+                <div class="app-stats-row">
+                    <div class="stat-box">
+                        <span id="detail-downloads" class="stat-value">0</span>
+                        <span class="stat-label">Downloads</span>
+                    </div>
+                    <div class="stat-box">
+                        <span id="detail-date" class="stat-value">N/A</span>
+                        <span class="stat-label">Published</span>
+                    </div>
+                </div>
+
+                <a id="detail-dl-btn" href="#" target="_blank" class="download-full-btn">Download Now</a>
+            </div>
+
+            <div id="ss-section-title" class="section-title">Screenshots</div>
+            <div id="ss-container" class="screenshot-scroll"></div>
+
+            <div class="section-title">Description</div>
+            <div id="detail-desc" class="desc-box"></div>
+
+            <!-- More Apps Section (7 Items Grid) -->
+            <div class="section-title">More Apps</div>
+            <div id="more-apps-container"></div>
+        </div>
+
+        <!-- 5. Developer Profile (Public) -->
+        <div id="view-dev-public" class="view-page">
+            <div style="position: absolute; top: 15px; left: 15px; z-index: 10;">
+                <i class="fas fa-arrow-left" style="color: white; background: rgba(0,0,0,0.4); width: 35px; height: 35px; line-height: 35px; text-align: center; border-radius: 50%; cursor: pointer; backdrop-filter: blur(4px);" onclick="goBack()"></i>
+            </div>
+            
+            <div class="dev-view-container">
+                <img id="dev-public-banner" class="dev-banner" src="" onerror="this.src='https://via.placeholder.com/400x150/cccccc/ffffff?text=No+Banner'">
+                <div class="dev-profile-body">
+                    <div class="dev-avatar-container">
+                        <img id="dev-public-pic" class="dev-avatar-lg" src="" onerror="this.src='https://via.placeholder.com/100?text=User'">
+                    </div>
+                    <div class="dev-info-section">
+                        <h1 id="dev-public-name" class="dev-name-lg">Dev Name</h1>
+                        <p id="dev-public-bio" class="dev-bio">Bio goes here...</p>
+                    </div>
+                </div>
+                <div class="dev-apps-header">Published Apps</div>
+                <!-- Developer Apps Container (Now List Style) -->
+                <div id="dev-app-list" style="display: flex; flex-direction: column; padding: 10px; gap: 8px;"></div>
+            </div>
+        </div>
+
+        <!-- 6. User Profile -->
+        <div id="view-profile" class="view-page">
+            <div class="header">
+                <div class="header-title">My Profile</div>
+                <i class="fas fa-cog header-icon" onclick="navigateTo('settings')"></i>
+            </div>
+
+            <div class="profile-card">
+                <div class="profile-img-container">
+                    <img id="my-pic" src="" class="my-avatar" onerror="this.src='https://via.placeholder.com/100'">
+                    <div class="edit-badge" onclick="openEditModal()">
+                        <i class="fas fa-pen"></i>
+                    </div>
+                </div>
+                <h2 id="my-name" style="margin: 5px 0; color: var(--text-main);">Your Name</h2>
+                <p id="my-email" style="color: var(--text-sub); font-size: 14px; margin: 0;">email@example.com</p>
+            </div>
+        </div>
+
+        <!-- Edit Profile Modal -->
+        <div id="edit-modal">
+            <div class="modal-content">
+                <h3 style="margin-top:0;">Edit Profile</h3>
+                
+                <label style="font-size:12px; font-weight:bold; color:var(--text-sub);">Name</label>
+                <input type="text" id="edit-name" class="modal-input">
+                
+                <div class="file-upload-wrapper">
+                    <label for="edit-pic-file" class="file-upload-label">
+                        <i class="fas fa-cloud-upload-alt"></i> Change Profile Picture
+                    </label>
+                    <input type="file" id="edit-pic-file" accept="image/*">
+                    <p id="file-name-display" style="font-size: 11px; color: var(--primary); margin-top: 5px;"></p>
+                </div>
+
+                <div style="display:flex; gap:10px; margin-top:15px;">
+                    <button onclick="closeEditModal()" style="flex:1; padding:12px; border:none; border-radius:10px; cursor:pointer; background:var(--border); color:var(--text-main); font-weight:bold;">Cancel</button>
+                    <button onclick="saveProfile()" id="save-profile-btn" style="flex:1; padding:12px; background:var(--primary); color:white; border:none; border-radius:10px; cursor:pointer; font-weight:bold;">Save</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ad Container (Fixed above nav) -->
+        <div class="ad-container">
+            <script>
+                atOptions = {
+                    'key' : '78d822cc73f53392167a7347fa059fca',
+                    'format' : 'iframe',
+                    'height' : 50,
+                    'width' : 320,
+                    'params' : {}
+                };
+            </script>
+            <script type="text/javascript" src="https://www.highperformanceformat.com/78d822cc73f53392167a7347fa059fca/invoke.js"></script>
+        </div>
+
+        <!-- Bottom Navigation -->
+        <div class="bottom-nav">
+            <div class="nav-item active" onclick="switchMainTab('home')">
+                <i class="fas fa-home"></i>
+                <span>Home</span>
+            </div>
+            <div class="nav-item" onclick="switchMainTab('profile')">
+                <i class="fas fa-user-circle"></i>
+                <span>Profile</span>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Firebase Logic -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, updateProfile, signOut } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js";
+        import { getFirestore, collection, query, where, getDocs, doc, getDoc, setDoc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+          apiKey: "AIzaSyDkmDtaSE36U85pBOLU6IOMLzihvDT-eOY",
+          authDomain: "app-store-607f3.firebaseapp.com",
+          projectId: "app-store-607f3",
+          storageBucket: "app-store-607f3.firebasestorage.app",
+          messagingSenderId: "828953904766",
+          appId: "1:828953904766:web:2e07cf1a836222c17c7a2f"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        const IMGBB_API_KEY = "498692fab537289ece57fae7d56e7de6"; 
+
+        let isLogin = true;
+        let viewHistory = ['home'];
+        let currentDevId = null;
+        let fetchedApps = [];
+        let slideInterval;
+        let currentAppId = null;
+
+        // --- Lightbox Logic ---
+        let currentScreenshots = [];
+        let currentSsIndex = 0;
+
+        window.openLightbox = (index) => {
+            currentSsIndex = index;
+            const modal = document.getElementById('lightbox');
+            const img = document.getElementById('lightbox-img');
+            img.src = currentScreenshots[index];
+            modal.style.display = 'flex';
+        };
+
+        window.closeLightbox = () => {
+            document.getElementById('lightbox').style.display = 'none';
+        };
+
+        window.nextSlide = (e) => {
+            e.stopPropagation();
+            currentSsIndex = (currentSsIndex + 1) % currentScreenshots.length;
+            document.getElementById('lightbox-img').src = currentScreenshots[currentSsIndex];
+        };
+
+        window.prevSlide = (e) => {
+            e.stopPropagation();
+            currentSsIndex = (currentSsIndex - 1 + currentScreenshots.length) % currentScreenshots.length;
+            document.getElementById('lightbox-img').src = currentScreenshots[currentSsIndex];
+        };
+        
+        let touchStartX = 0;
+        let touchEndX = 0;
+        const lightboxEl = document.getElementById('lightbox');
+        
+        lightboxEl.addEventListener('touchstart', e => touchStartX = e.changedTouches[0].screenX);
+        lightboxEl.addEventListener('touchend', e => {
+            touchEndX = e.changedTouches[0].screenX;
+            handleSwipe();
+        });
+        
+        function handleSwipe() {
+            if (touchStartX - touchEndX > 50) window.nextSlide({stopPropagation:()=>{}}); 
+            if (touchEndX - touchStartX > 50) window.prevSlide({stopPropagation:()=>{}}); 
+        }
+
+        // --- Helper: Toast ---
+        window.showToast = (msg, type = 'info') => {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'toast-msg';
+            let icon = 'fa-info-circle';
+            if(type === 'success') icon = 'fa-check-circle';
+            if(type === 'error') icon = 'fa-exclamation-circle';
+            toast.innerHTML = `<i class="fas ${icon}"></i> <span>${msg}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => toast.classList.add('show'), 10);
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        };
+
+        // --- Theme Logic ---
+        window.toggleTheme = () => {
+            const isDark = document.getElementById('theme-switch').checked;
+            if(isDark) {
+                document.documentElement.setAttribute('data-theme', 'dark');
+                localStorage.setItem('theme', 'dark');
+            } else {
+                document.documentElement.removeAttribute('data-theme');
+                localStorage.setItem('theme', 'light');
+            }
+        };
+        if(localStorage.getItem('theme') === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            document.getElementById('theme-switch').checked = true;
+        }
+
+        // --- Auth Logic ---
+        window.toggleAuth = () => {
+            isLogin = !isLogin;
+            document.getElementById('auth-title').innerText = isLogin ? 'Welcome Back' : 'Create Account';
+            document.getElementById('auth-btn').innerText = isLogin ? 'Login' : 'Sign Up';
+            document.getElementById('auth-toggle').innerHTML = isLogin ? 'No account? <b>Sign Up</b>' : 'Have account? <b>Login</b>';
+        };
+
+        window.handleAuth = async () => {
+            const email = document.getElementById('email').value;
+            const pass = document.getElementById('password').value;
+            const btn = document.getElementById('auth-btn');
+            
+            btn.innerText = "Processing...";
+            try {
+                if (isLogin) {
+                    await signInWithEmailAndPassword(auth, email, pass);
+                } else {
+                    const userCred = await createUserWithEmailAndPassword(auth, email, pass);
+                    await setDoc(doc(db, "developers", userCred.user.uid), {
+                        name: "User", email: email, role: "user"
+                    });
+                }
+            } catch (error) { 
+                showToast(error.message, 'error');
+                btn.innerText = isLogin ? "Login" : "Sign Up";
+            }
+        };
+
+        window.logout = () => signOut(auth);
+
+        // --- Navigation ---
+        function showView(viewName) {
+            document.querySelectorAll('.view-page').forEach(el => el.classList.remove('active'));
+            document.getElementById(`view-${viewName}`).classList.add('active');
+            window.scrollTo(0,0);
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            if(viewName === 'home') document.querySelectorAll('.nav-item')[0].classList.add('active');
+            if(viewName === 'profile') document.querySelectorAll('.nav-item')[1].classList.add('active');
+            
+            if(viewName === 'sky-apps') loadSkyApps();
+        }
+
+        window.switchMainTab = (tab) => {
+            viewHistory = [tab];
+            showView(tab);
+        };
+
+        window.navigateTo = (viewName) => {
+            viewHistory.push(viewName);
+            showView(viewName);
+        };
+
+        window.goBack = () => {
+            if(viewHistory.length > 1) {
+                viewHistory.pop();
+                showView(viewHistory[viewHistory.length - 1]);
+            } else {
+                switchMainTab('home');
+            }
+        };
+
+        // --- Slider Logic (Updated for Linking) ---
+        async function loadBanners() {
+            try {
+                const q = query(collection(db, "banners"));
+                const snapshot = await getDocs(q);
+                if (snapshot.empty) return;
+                const slides = [];
+                snapshot.forEach((doc) => {
+                    slides.push({
+                        img: doc.data().imageUrl,
+                        appId: doc.data().linkedAppId || null // Check for linked app
+                    });
+                });
+                renderBanners(slides);
+            } catch (e) {}
+        }
+
+        function renderBanners(slides) {
+            const wrapper = document.getElementById('slider-wrapper');
+            const dots = document.getElementById('slider-dots');
+            const section = document.getElementById('banner-section');
+            if(slides.length === 0) { section.style.display = 'none'; return; }
+            section.style.display = 'block';
+            wrapper.innerHTML = "";
+            dots.innerHTML = "";
+            slides.forEach((slide, i) => {
+                // Add onclick event to slide
+                wrapper.innerHTML += `
+                    <div class="slide" onclick="handleBannerClick('${slide.appId}')">
+                        <img src="${slide.img}">
+                    </div>`;
+                dots.innerHTML += `<div class="dot ${i===0?'active-dot':''}" onclick="goToSlide(${i})"></div>`;
+            });
+            initSlider(slides.length);
+        }
+        
+        window.handleBannerClick = async (appId) => {
+            if(!appId || appId === 'null') return;
+            try {
+                const appSnap = await getDoc(doc(db, "apps", appId));
+                if(appSnap.exists()) {
+                    const data = appSnap.data();
+                    data.id = appId;
+                    openAppDetails(data);
+                } else {
+                    showToast("App not found", "error");
+                }
+            } catch(e) { console.error(e); }
+        };
+
+        function initSlider(count) {
+            if(slideInterval) clearInterval(slideInterval);
+            let idx = 0;
+            const update = () => {
+                document.getElementById('slider-wrapper').style.transform = `translateX(-${idx * 100}%)`;
+                document.querySelectorAll('.dot').forEach(d => d.classList.remove('active-dot'));
+                const ds = document.querySelectorAll('.dot');
+                if(ds[idx]) ds[idx].classList.add('active-dot');
+            };
+            window.goToSlide = (i) => { idx = i; update(); reset(); };
+            const next = () => { idx = (idx + 1) % count; update(); };
+            const start = () => { slideInterval = setInterval(next, 3000); };
+            const reset = () => { clearInterval(slideInterval); start(); };
+            start();
+        }
+
+        // --- MAIN APP LOGIC ---
+        async function loadApps() {
+            const list = document.getElementById('app-list');
+            if(list.children.length === 0) list.innerHTML = "<p style='width:100%;text-align:center;'>Loading...</p>";
+
+            try {
+                const q = query(collection(db, "apps"), where("status", "==", "live"));
+                const querySnapshot = await getDocs(q);
+                
+                fetchedApps = []; 
+                if(querySnapshot.empty) {
+                    list.innerHTML = "<p style='width:100%;text-align:center;'>No apps found</p>";
+                    return;
+                }
+
+                list.innerHTML = ""; 
+                let index = 0;
+
+                querySnapshot.forEach((docSnap) => {
+                    const data = docSnap.data();
+                    data.id = docSnap.id;
+                    fetchedApps.push(data);
+
+                    let type = 'grid'; 
+                    if (index < 5) type = 'list';
+                    else if (index < 13) type = 'grid'; 
+                    else if (index < 19) type = 'list'; 
+                    else type = 'grid'; 
+
+                    list.appendChild(createAppElement(data, type));
+                    index++;
+                });
+            } catch (error) { console.log(error); }
+        }
+
+        // --- Load Sky Apps (New Function) ---
+        window.loadSkyApps = async () => {
+            const list = document.getElementById('sky-apps-list');
+            list.innerHTML = "<p style='width:100%;text-align:center;margin-top:20px;'>Loading...</p>";
+            
+            try {
+                // Query for apps with category 'sky'
+                const q = query(collection(db, "apps"), where("category", "==", "sky"), where("status", "==", "live"));
+                const snap = await getDocs(q);
+                
+                list.innerHTML = "";
+                if(snap.empty) {
+                    list.innerHTML = "<p style='width:100%;text-align:center;color:gray;margin-top:20px;'>No Sky Apps available.</p>";
+                    return;
+                }
+                
+                // Show as List Style for better visibility in this specific view
+                snap.forEach(docSnap => {
+                    const data = docSnap.data();
+                    data.id = docSnap.id;
+                    list.appendChild(createAppElement(data, 'list'));
+                });
+
+            } catch(e) { console.error(e); }
+        };
+
+        function createAppElement(data, type) {
+            const div = document.createElement('div');
+            
+            if (type === 'list') {
+                div.className = 'app-item-list';
+                div.innerHTML = `
+                    <img src="${data.appIcon}" class="app-icon" onerror="this.src='https://via.placeholder.com/50'">
+                    <div class="app-info">
+                        <h4 class="app-name">${data.appName}</h4>
+                        <p class="app-desc">${data.appDesc}</p>
+                    </div>
+                    <i class="fas fa-chevron-right arrow"></i>
+                `;
+            } else {
+                div.className = 'app-item-grid';
+                div.innerHTML = `
+                    <img src="${data.appIcon}" class="app-icon" onerror="this.src='https://via.placeholder.com/50'">
+                    <span class="app-name">${data.appName}</span>
+                `;
+            }
+            div.onclick = () => openAppDetails(data);
+            return div;
+        }
+
+        window.performSearch = () => {
+            const query = document.getElementById('search-input').value.toLowerCase();
+            const resultBox = document.getElementById('search-results');
+            resultBox.innerHTML = "";
+            if(query.length < 1) {
+                resultBox.innerHTML = `<div class="search-placeholder"><i class="fas fa-rocket"></i><p>Type above</p></div>`;
+                return;
+            }
+            const results = fetchedApps.filter(app => app.appName.toLowerCase().includes(query) || app.appDesc.toLowerCase().includes(query));
+            if(results.length === 0) resultBox.innerHTML = "<p style='text-align:center;color:#999;'>No results</p>";
+            else results.forEach(data => resultBox.appendChild(createAppElement(data, 'list')));
+        };
+
+        // --- Details Logic ---
+        window.openAppDetails = async (data) => {
+            currentAppId = data.id; 
+            currentDevId = data.devId;
+
+            document.getElementById('detail-icon').src = data.appIcon;
+            document.getElementById('detail-name').innerText = data.appName;
+            document.getElementById('detail-desc').innerText = data.appDesc;
+            
+            const dlBtn = document.getElementById('detail-dl-btn');
+            dlBtn.href = data.downloadUrl;
+            dlBtn.replaceWith(dlBtn.cloneNode(true));
+            const newDlBtn = document.getElementById('detail-dl-btn');
+            newDlBtn.onclick = () => {
+                const countEl = document.getElementById('detail-downloads');
+                let currentVal = parseInt(countEl.innerText.replace(/,/g, '')) || 0;
+                countEl.innerText = (currentVal + 1).toLocaleString();
+                updateDoc(doc(db, "apps", currentAppId), { downloadCount: increment(1) }).catch(e=>console.log(e));
+                return true; 
+            };
+
+            document.getElementById('detail-dev').innerText = "Loading...";
+            
+            const count = data.downloadCount ? data.downloadCount : 0;
+            document.getElementById('detail-downloads').innerText = count.toLocaleString();
+
+            let dateStr = "N/A";
+            if(data.timestamp) {
+                const dateObj = data.timestamp.toDate ? data.timestamp.toDate() : new Date(data.timestamp);
+                dateStr = dateObj.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+            }
+            document.getElementById('detail-date').innerText = dateStr;
+
+            const ssContainer = document.getElementById('ss-container');
+            ssContainer.innerHTML = "";
+            currentScreenshots = data.screenshots || [];
+            
+            if(currentScreenshots.length > 0) {
+                document.getElementById('ss-section-title').style.display = 'block';
+                ssContainer.style.display = 'flex';
+                currentScreenshots.forEach((url, idx) => {
+                    const img = document.createElement('img');
+                    img.src = url;
+                    img.className = 'screenshot-img';
+                    img.onclick = () => openLightbox(idx);
+                    ssContainer.appendChild(img);
+                });
+            } else {
+                document.getElementById('ss-section-title').style.display = 'none';
+                ssContainer.style.display = 'none';
+            }
+
+            const recContainer = document.getElementById('more-apps-container');
+            recContainer.innerHTML = "";
+            const recs = fetchedApps.filter(a => a.id !== currentAppId).slice(0, 7);
+            if(recs.length > 0) {
+                recs.forEach(a => recContainer.appendChild(createAppElement(a, 'grid')));
+            } else {
+                recContainer.innerHTML = "<p style='width:100%;text-align:center;color:var(--text-sub);font-size:13px;'>No other apps found.</p>";
+            }
+
+            try {
+                const devSnap = await getDoc(doc(db, "developers", data.devId));
+                document.getElementById('detail-dev').innerText = devSnap.exists() ? devSnap.data().name : "Unknown Developer";
+            } catch(e) {}
+
+            navigateTo('details');
+        };
+
+        window.openDevProfileFromApp = async () => {
+            if(!currentDevId) return;
+            document.getElementById('dev-public-name').innerText = "Loading...";
+            document.getElementById('dev-app-list').innerHTML = "<p>Loading...</p>";
+            navigateTo('dev-public');
+            try {
+                const devSnap = await getDoc(doc(db, "developers", currentDevId));
+                if(devSnap.exists()) {
+                    const d = devSnap.data();
+                    document.getElementById('dev-public-name').innerText = d.name || "No Name";
+                    document.getElementById('dev-public-bio').innerText = d.bio || "No bio available.";
+                    document.getElementById('dev-public-banner').src = d.banner || "";
+                    document.getElementById('dev-public-pic').src = d.pic || "https://via.placeholder.com/100";
+                }
+                const q = query(collection(db, "apps"), where("devId", "==", currentDevId), where("status", "==", "live"));
+                const querySnapshot = await getDocs(q);
+                const list = document.getElementById('dev-app-list');
+                list.innerHTML = "";
+                
+                if(querySnapshot.empty) {
+                    list.innerHTML = "<p style='text-align:center;color:gray;'>No apps published.</p>";
+                } else {
+                    querySnapshot.forEach(docSnap => list.appendChild(createAppElement(docSnap.data(), 'list')));
+                }
+            } catch(e) {}
+        };
+
+        // --- User Profile (Edit with ImgBB) ---
+        async function loadMyProfile() {
+            const user = auth.currentUser;
+            if(!user) return;
+            document.getElementById('my-email').innerText = user.email;
+
+            const docSnap = await getDoc(doc(db, "developers", user.uid));
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                document.getElementById('my-name').innerText = data.name || "Set Name";
+                document.getElementById('my-pic').src = data.pic || "https://via.placeholder.com/100";
+                document.getElementById('edit-name').value = data.name || "";
+            }
+        }
+
+        document.getElementById('edit-pic-file').addEventListener('change', function(e) {
+            const fileName = e.target.files[0] ? e.target.files[0].name : "";
+            document.getElementById('file-name-display').innerText = fileName ? "Selected: " + fileName : "";
+        });
+
+        window.openEditModal = () => document.getElementById('edit-modal').style.display = 'flex';
+        window.closeEditModal = () => document.getElementById('edit-modal').style.display = 'none';
+
+        window.saveProfile = async () => {
+            const name = document.getElementById('edit-name').value;
+            const fileInput = document.getElementById('edit-pic-file');
+            const saveBtn = document.getElementById('save-profile-btn');
+            let picUrl = document.getElementById('my-pic').src;
+
+            saveBtn.innerText = "Uploading...";
+            
+            try {
+                if (fileInput.files.length > 0) {
+                    const file = fileInput.files[0];
+                    const formData = new FormData();
+                    formData.append("image", file);
+                    const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, { method: "POST", body: formData });
+                    const data = await res.json();
+                    if(data.success) picUrl = data.data.url;
+                    else throw new Error("Image Upload Failed");
+                }
+
+                saveBtn.innerText = "Saving...";
+                await updateProfile(auth.currentUser, { displayName: name, photoURL: picUrl });
+                await setDoc(doc(db, "developers", auth.currentUser.uid), {
+                    name: name, pic: picUrl, uid: auth.currentUser.uid
+                }, { merge: true });
+
+                showToast("Profile Updated!", "success");
+                closeEditModal();
+                loadMyProfile();
+            } catch(e) { 
+                showToast("Error: " + e.message, "error"); 
+            } finally {
+                saveBtn.innerText = "Save";
+            }
+        };
+
+        // --- Main Auth Listener ---
+        onAuthStateChanged(auth, (user) => {
+            const splash = document.getElementById('splash-screen');
+            if (user) {
+                document.getElementById('auth-container').style.display = 'none';
+                document.getElementById('main-app').style.display = 'block';
+                loadMyProfile();
+                loadApps();
+                loadBanners();
+            } else {
+                document.getElementById('auth-container').style.display = 'flex';
+                document.getElementById('main-app').style.display = 'none';
+            }
+            setTimeout(() => {
+                splash.style.opacity = '0';
+                setTimeout(() => splash.style.display = 'none', 500);
+            }, 500);
+        });
+
+    </script>
+</body>
+</html>
